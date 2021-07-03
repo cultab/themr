@@ -1,0 +1,130 @@
+#!/bin/env python3
+"""A program to set a global theme by replacing strings in config files."""
+
+import re
+import argparse
+import yaml
+from os.path import expanduser
+from os import system
+
+debug = False
+
+def main():
+    """Entry point."""
+    global debug
+
+    parser = argparse.ArgumentParser(
+        description="Set a theme in multiple programs by replacing strings in their config files."
+    )
+
+    parser.add_argument('theme_name', metavar='THEME', type=str, nargs='?', help='theme to use')
+    parser.add_argument('-l', '--list-themes', action='store_true', help="list supported themes and exit")
+    parser.add_argument('-c', '--list-configs', action='store_true', help='list supported configs and exit')
+    parser.add_argument('-d', '--debug', action='store_true', help='print debug messages')
+
+    args = parser.parse_args()
+
+    debug = args.debug
+    chosen_theme_name = args.theme_name
+
+    themes = load_themes()
+    configs = load_configs()
+
+    if args.list_themes:
+        list_themes(themes)
+
+    if args.list_configs:
+        list_configs(configs)
+
+    if args.list_themes or args.list_configs:
+        exit(0)
+
+    if chosen_theme_name is None:
+        print("No theme name given")
+        exit(1)
+
+    if (chosen_theme := themes.get(chosen_theme_name)) is None:
+        print(f'Theme "{chosen_theme_name}" does not exist')
+        exit(1)
+
+    set_theme(chosen_theme, configs)
+
+
+def load_themes():
+    with open(expanduser('~/.config/themr/themes.yaml')) as themes_stream:
+        themes = yaml.safe_load(themes_stream)
+
+    return themes
+
+
+def load_configs():
+    with open(expanduser('~/.config/themr/configs.yaml')) as configs_stream:
+        configs = yaml.safe_load(configs_stream)
+
+    return configs
+
+
+def list_themes(themes):
+    global debug
+
+    print("Supported themes:")
+    for theme in themes:
+        print("\t" + theme)
+
+    if debug:
+        print(themes)
+
+
+def list_configs(configs):
+    global debug
+
+    print("Supported configs:")
+    for config in configs:
+        print("\t" + config)
+
+    if debug:
+        print(configs)
+
+
+def set_theme(theme, configs):
+    """Set the theme in configs."""
+    global debug
+
+    for config_name, config in configs.items():
+        success = False
+
+        config_path = expanduser(config["path"])
+        regex = re.compile(config["regex"])
+        replace = theme[config_name]
+
+        new_config_contents = list()
+
+        with open(config_path, 'r') as config_file:
+            for line in config_file:
+                if regex.match(line) and not success:
+                    new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
+                    if debug:
+                        print(f'found line:  {line}', end='')
+                        print(f'replaced by: {config["pre"] + replace + config["post"]}')
+                    success = True
+                else:
+                    new_config_contents.append(line)
+
+        if not success:
+            print(f'Error in {config_name} config:')
+            print(f'\tNo line matched regex: "{config["regex"]}"')
+
+        with open(config_path, 'w') as config_file:
+            for line in new_config_contents:
+                config_file.write(line)
+
+        cmd = config.get("cmd")
+
+        if cmd is not None:
+            system(cmd)
+            if debug:
+                print(f'Executing post replace command: "{cmd}" for {config_name}.')
+
+
+if __name__ == "__main__":
+    main()
