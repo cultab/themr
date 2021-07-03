@@ -4,8 +4,8 @@
 import re
 import argparse
 import yaml
+import subprocess
 from os.path import expanduser
-from os import system
 
 debug = False
 
@@ -121,7 +121,12 @@ def set_theme(theme, configs):
         cmd = config.get("cmd")
 
         if cmd is not None:
-            system(cmd)
+
+            if '%' in cmd:
+                cmd = cmd.replace("%", replace)
+
+            # system(cmd)
+            subprocess.run(cmd, shell=True)
             if debug:
                 print(f'Executing post replace command: "{cmd}" for {config_name}.')
 
