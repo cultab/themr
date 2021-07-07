@@ -100,7 +100,11 @@ def set_theme(theme, configs):
 
             config_path = expanduser(config["path"])
             regex = re.compile(config["regex"])
-            replace = theme[config_name]
+
+            # If we don't have a specific theme name, use the default.
+            # This is done so if a theme has the same name in every config,
+            # you don't have to repeat it each time.
+            replace = theme.get(config_name, theme["default"])
 
             new_config_contents = list()
 

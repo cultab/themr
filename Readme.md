@@ -61,13 +61,19 @@ vim:
 
 # Themes
 
-Themes are stored in ~/.config/themr/themes.yaml as dictionaries containing key value pairs with the name of the theme for each kind of config.
+Themes are stored in ~/.config/themr/themes.yaml as dictionaries containing key value pairs with
+the name of the theme for each kind of config. 
+
+A default name can be defined so that you don't have to repeat the name for each config if it's the same.
+If a default name is not defined you *must* define a name for all your defined configs.
 
 ## Example:
 
 ```yaml
 gruvbox:
     vim: "gruvbox8_hard"
-    lightline: "gruvbox"
-    xresources: "gruvbox"
+    default: "gruvbox"
+    # these two are not needed since they match the default
+    # lightline: "gruvbox"
+    # xresources: "gruvbox"
 ```
