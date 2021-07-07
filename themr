@@ -9,6 +9,7 @@ from os.path import expanduser
 
 debug = False
 
+
 def main():
     """Entry point."""
     global debug
@@ -93,42 +94,49 @@ def set_theme(theme, configs):
     for config_name, config in configs.items():
         success = False
 
-        config_path = expanduser(config["path"])
-        regex = re.compile(config["regex"])
-        replace = theme[config_name]
-
-        new_config_contents = list()
-
-        with open(config_path, 'r') as config_file:
-            for line in config_file:
-                if regex.match(line) and not success:
-                    new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
-                    if debug:
-                        print(f'found line:  {line}', end='')
-                        print(f'replaced by: {config["pre"] + replace + config["post"]}')
-                    success = True
-                else:
-                    new_config_contents.append(line)
-
-        if not success:
-            print(f'Error in {config_name} config:')
-            print(f'\tNo line matched regex: "{config["regex"]}"')
-
-        with open(config_path, 'w') as config_file:
-            for line in new_config_contents:
-                config_file.write(line)
-
-        cmd = config.get("cmd")
-
-        if cmd is not None:
-
-            if '%' in cmd:
-                cmd = cmd.replace("%", replace)
-
-            # system(cmd)
-            subprocess.run(cmd, shell=True)
+        try:
             if debug:
-                print(f'Executing post replace command: "{cmd}" for {config_name}.')
+                print(f'Working on {config_name}')
+
+            config_path = expanduser(config["path"])
+            regex = re.compile(config["regex"])
+            replace = theme[config_name]
+
+            new_config_contents = list()
+
+            with open(config_path, 'r') as config_file:
+                for line in config_file:
+                    if regex.match(line) and not success:
+                        new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
+                        if debug:
+                            print(f'found line:  {line}', end='')
+                            print(f'replaced by: {config["pre"] + replace + config["post"]}')
+                        success = True
+                    else:
+                        new_config_contents.append(line)
+
+            if not success:
+                print(f'Error in {config_name} config:')
+                print(f'\tNo line matched regex: "{config["regex"]}"')
+
+            with open(config_path, 'w') as config_file:
+                for line in new_config_contents:
+                    config_file.write(line)
+
+            cmd = config.get("cmd")
+
+            if cmd is not None:
+
+                if '%' in cmd:
+                    cmd = cmd.replace("%", replace)
+
+                # system(cmd)
+                subprocess.run(cmd, shell=True)
+                if debug:
+                    print(f'Executing post replace command: "{cmd}"')
+        except FileNotFoundError:
+            print(f'Error in {config_name} config:')
+            print(f'\tNo file found at: "{config["path"]}"')
 
 
 if __name__ == "__main__":
