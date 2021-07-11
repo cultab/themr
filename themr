@@ -48,19 +48,19 @@ def main():
         print(f'Theme "{chosen_theme_name}" does not exist')
         exit(1)
 
-    set_theme(chosen_theme, configs)
+    set_theme_in_configs(chosen_theme, configs)
 
 
 def load_themes():
     with open(expanduser('~/.config/themr/themes.yaml')) as themes_stream:
-        themes = yaml.safe_load(themes_stream)
+        themes = yaml.safe_load(themes_stream)  # TODO: use a class for themes
 
     return themes
 
 
 def load_configs():
     with open(expanduser('~/.config/themr/configs.yaml')) as configs_stream:
-        configs = yaml.safe_load(configs_stream)
+        configs = yaml.safe_load(configs_stream)  # TODO: use a class for themes
 
     return configs
 
@@ -87,60 +87,81 @@ def list_configs(configs):
         print(configs)
 
 
-def set_theme(theme, configs):
+def get_new_config_contents(theme, config_name, config):
+    warning = ""
+    success = False
+
+    config_path = expanduser(config["path"])
+    regex = re.compile(config["regex"])
+    # If we don't have a specific theme name, use the default.
+    # This is done so if a theme has the same name in every config,
+    # you don't have to repeat it each time.
+    replace = theme.get(config_name, theme["default"])
+
+    new_config_contents = list()
+    with open(config_path, 'r') as config_file:
+        for line in config_file:
+            if regex.match(line) and not success:
+                new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
+                if debug:
+                    print(f'found line:  {line}', end='')
+                    print(f'replaced by: {config["pre"] + replace + config["post"]}')
+                success = True
+            else:
+                new_config_contents.append(line)
+
+    if not success:
+        warning += f'No line matched regex: "{config["regex"]}"'
+
+    return new_config_contents, warning
+
+
+def write_new_config_contents(config, contents):
+    config_path = expanduser(config["path"])
+
+    with open(config_path, 'w') as config_file:
+        for line in contents:
+            config_file.write(line)
+
+
+def set_theme_in_configs(theme, configs):
     """Set the theme in configs."""
     global debug
 
     for config_name, config in configs.items():
-        success = False
+        warnings = list()
 
-        try:
-            if debug:
-                print(f'Working on {config_name}')
+        if config.get("path"):
+            try:
+                if debug:
+                    print(f'Working on {config_name}')
 
-            config_path = expanduser(config["path"])
-            regex = re.compile(config["regex"])
+                new_config_contents, warn = get_new_config_contents(theme, config_name, config)
 
-            # If we don't have a specific theme name, use the default.
-            # This is done so if a theme has the same name in every config,
-            # you don't have to repeat it each time.
+                if not warn:
+                    write_new_config_contents(config, new_config_contents)
+                else:
+                    warnings.append(warn)
+
+            except FileNotFoundError:
+                warnings.append(f'\tNo file found at: "{config["path"]}"')
+
+        cmd = config.get("cmd")
+
+        if cmd is not None:
             replace = theme.get(config_name, theme["default"])
 
-            new_config_contents = list()
+            if '%' in cmd:
+                cmd = cmd.replace("%", replace)
 
-            with open(config_path, 'r') as config_file:
-                for line in config_file:
-                    if regex.match(line) and not success:
-                        new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
-                        if debug:
-                            print(f'found line:  {line}', end='')
-                            print(f'replaced by: {config["pre"] + replace + config["post"]}')
-                        success = True
-                    else:
-                        new_config_contents.append(line)
+            subprocess.run(cmd, shell=True)
+            if debug:
+                print(f'Executing post replace command: "{cmd}"')
 
-            if not success:
-                print(f'Error in {config_name} config:')
-                print(f'\tNo line matched regex: "{config["regex"]}"')
-
-            with open(config_path, 'w') as config_file:
-                for line in new_config_contents:
-                    config_file.write(line)
-
-            cmd = config.get("cmd")
-
-            if cmd is not None:
-
-                if '%' in cmd:
-                    cmd = cmd.replace("%", replace)
-
-                # system(cmd)
-                subprocess.run(cmd, shell=True)
-                if debug:
-                    print(f'Executing post replace command: "{cmd}"')
-        except FileNotFoundError:
-            print(f'Error in {config_name} config:')
-            print(f'\tNo file found at: "{config["path"]}"')
+        if warnings:
+            print(f'Warnings from {config_name} config:')
+            for warn in warnings:
+                print('\t' + warn + '\n')
 
 
 if __name__ == "__main__":
