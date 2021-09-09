@@ -154,7 +154,8 @@ def set_theme_in_configs(theme, configs):
             if '%' in cmd:
                 cmd = cmd.replace("%", replace)
 
-            subprocess.run(cmd, shell=True)
+            subprocess.Popen(cmd, shell=True, stdin=None, stdout=None)
+
             if debug:
                 print(f'Executing post replace command: "{cmd}"')
 
