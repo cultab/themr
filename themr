@@ -5,7 +5,9 @@ import re
 import argparse
 import yaml
 import subprocess
+from os import environ
 from os.path import expanduser
+
 
 debug = False
 
@@ -28,8 +30,11 @@ def main():
     debug = args.debug
     chosen_theme_name = args.theme_name
 
-    themes = load_themes()
-    configs = load_configs()
+    config_folder_path = environ.get("XDG_CONFIG_HOME", expanduser("~/.config"))
+    config_folder_path += "/themr"
+
+    themes = load_themes(config_folder_path)
+    configs = load_configs(config_folder_path)
 
     if args.list_themes:
         list_themes(themes)
@@ -51,9 +56,9 @@ def main():
     set_theme(chosen_theme, configs)
 
 
-def load_themes():
+def load_themes(folder_path):
     try:
-        with open(expanduser('~/.config/themr/themes.yaml')) as themes_stream:
+        with open(f'{folder_path}/themes.yaml') as themes_stream:
             themes = yaml.safe_load(themes_stream)  # TODO: use a class for themes
     except FileNotFoundError:
         print("themes.yaml was not found!")
@@ -62,9 +67,9 @@ def load_themes():
     return themes
 
 
-def load_configs():
+def load_configs(folder_path):
     try:
-        with open(expanduser('~/.config/themr/configs.yaml')) as configs_stream:
+        with open(expanduser(f'{folder_path}/configs.yaml')) as configs_stream:
             configs = yaml.safe_load(configs_stream)  # TODO: use a class for themes
     except FileNotFoundError:
         print("configs.yaml was not found!")
