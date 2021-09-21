@@ -48,19 +48,30 @@ def main():
         print(f'Theme "{chosen_theme_name}" does not exist')
         exit(1)
 
-    set_theme_in_configs(chosen_theme, configs)
+    set_theme(chosen_theme, configs)
 
 
 def load_themes():
-    with open(expanduser('~/.config/themr/themes.yaml')) as themes_stream:
-        themes = yaml.safe_load(themes_stream)  # TODO: use a class for themes
+    try:
+        with open(expanduser('~/.config/themr/themes.yaml')) as themes_stream:
+            themes = yaml.safe_load(themes_stream)  # TODO: use a class for themes
+    except FileNotFoundError:
+        print("themes.yaml was not found!")
+        exit(-1)
 
     return themes
 
 
 def load_configs():
-    with open(expanduser('~/.config/themr/configs.yaml')) as configs_stream:
-        configs = yaml.safe_load(configs_stream)  # TODO: use a class for themes
+    try:
+        with open(expanduser('~/.config/themr/configs.yaml')) as configs_stream:
+            configs = yaml.safe_load(configs_stream)  # TODO: use a class for themes
+    except FileNotFoundError:
+        print("configs.yaml was not found!")
+        exit(-1)
+
+    for config_name, config in configs.items():
+        config["name"] = config_name
 
     return configs
 
@@ -68,7 +79,7 @@ def load_configs():
 def list_themes(themes):
     global debug
 
-    print("Supported themes:")
+    print("Found themes:")
     for theme in themes:
         print("\t" + theme)
 
@@ -79,7 +90,7 @@ def list_themes(themes):
 def list_configs(configs):
     global debug
 
-    print("Supported configs:")
+    print("Found configs:")
     for config in configs:
         print("\t" + config)
 
@@ -87,12 +98,14 @@ def list_configs(configs):
         print(configs)
 
 
-def get_new_config_contents(theme, config_name, config):
-    warning = ""
+def get_new_config_contents(theme, config):
+    warnings = ""
     success = False
 
+    config_name = config["name"]
     config_path = expanduser(config["path"])
     regex = re.compile(config["regex"])
+
     # If we don't have a specific theme name, use the default.
     # This is done so if a theme has the same name in every config,
     # you don't have to repeat it each time.
@@ -111,12 +124,12 @@ def get_new_config_contents(theme, config_name, config):
                 new_config_contents.append(line)
 
     if not success:
-        warning += f'No line matched regex: "{config["regex"]}"'
+        warnings += f'No line matched regex: "{config["regex"]}"'
 
-    return new_config_contents, warning
+    return new_config_contents, warnings
 
 
-def write_new_config_contents(config, contents):
+def write_new_config_file(config, contents):
     config_path = expanduser(config["path"])
 
     with open(config_path, 'w') as config_file:
@@ -124,40 +137,54 @@ def write_new_config_contents(config, contents):
             config_file.write(line)
 
 
-def set_theme_in_configs(theme, configs):
+def set_theme_for_config(theme, config):
+    warnings = list()
+
+    if debug:
+        print(f'Working on {config["name"]}')
+
+    if config.get("path"):
+        try:
+            new_config_contents, warn = get_new_config_contents(theme, config)
+
+            if not warn:
+                write_new_config_file(config, new_config_contents)
+            else:
+                warnings.append(warn)
+
+        except FileNotFoundError:
+            warnings.append(f'\tNo file found at: "{config["path"]}"')
+
+    try:
+        cmd = config["cmd"]
+        replace = theme.get(config["name"], theme["default"])
+
+        if '%' in cmd:
+            cmd = cmd.replace("%", replace)
+
+        subprocess.Popen(cmd, shell=True, stdin=None, stdout=None)
+
+        if debug:
+            print(f'Executing post replace command: "{cmd}"')
+
+    except KeyError:
+        pass
+
+    if warnings:
+        print(f'Warnings from {config["name"]} config:')
+        for warn in warnings:
+            print('\t' + warn + '\n')
+
+    return warnings
+
+
+def set_theme(theme, configs):
     """Set the theme in configs."""
     global debug
 
     for config_name, config in configs.items():
-        warnings = list()
 
-        if config.get("path"):
-            try:
-                if debug:
-                    print(f'Working on {config_name}')
-
-                new_config_contents, warn = get_new_config_contents(theme, config_name, config)
-
-                if not warn:
-                    write_new_config_contents(config, new_config_contents)
-                else:
-                    warnings.append(warn)
-
-            except FileNotFoundError:
-                warnings.append(f'\tNo file found at: "{config["path"]}"')
-
-        cmd = config.get("cmd")
-
-        if cmd is not None:
-            replace = theme.get(config_name, theme["default"])
-
-            if '%' in cmd:
-                cmd = cmd.replace("%", replace)
-
-            subprocess.Popen(cmd, shell=True, stdin=None, stdout=None)
-
-            if debug:
-                print(f'Executing post replace command: "{cmd}"')
+        warnings = set_theme_for_config(theme, config)
 
         if warnings:
             print(f'Warnings from {config_name} config:')
