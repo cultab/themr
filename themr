@@ -33,8 +33,8 @@ def main():
     config_folder_path = environ.get("XDG_CONFIG_HOME", expanduser("~/.config"))
     config_folder_path += "/themr"
 
-    themes = load_themes(config_folder_path)
     configs = load_configs(config_folder_path)
+    themes = load_themes(config_folder_path, [name for name in configs.keys()])
 
     if args.list_themes:
         list_themes(themes)
@@ -56,7 +56,9 @@ def main():
     set_theme(chosen_theme, configs)
 
 
-def load_themes(folder_path):
+def load_themes(folder_path, config_names):
+    """Load and validate themes from file."""
+
     try:
         with open(f'{folder_path}/themes.yaml') as themes_stream:
             themes = yaml.safe_load(themes_stream)  # TODO: use a class for themes
@@ -64,10 +66,25 @@ def load_themes(folder_path):
         print("themes.yaml was not found!")
         exit(-1)
 
+    for theme_name, theme in dict(themes).items():
+        valid = True
+
+        if not theme.get("default"):
+            for config_name in config_names:
+                if config_name not in theme.keys():
+                    print(f'Missing value for "{config_name}" in {theme_name} theme, while a default value is not given.')
+
+                    valid = False
+
+            if not valid:
+                print(f'Ignoring theme: {theme_name}.')
+                themes.pop(theme_name)
+
     return themes
 
 
 def load_configs(folder_path):
+    """Load and validate configs from file."""
     try:
         with open(expanduser(f'{folder_path}/configs.yaml')) as configs_stream:
             configs = yaml.safe_load(configs_stream)  # TODO: use a class for themes
@@ -75,8 +92,23 @@ def load_configs(folder_path):
         print("configs.yaml was not found!")
         exit(-1)
 
-    for config_name, config in configs.items():
+    required_keys = ['path', 'regex', 'pre', 'post']
+
+    for config_name, config in dict(configs).items():
+        # make name available like the rest of the values
         config["name"] = config_name
+
+        valid = True
+
+        for key in required_keys:
+            if key not in config.keys():
+                print(f'Missing value for "{key}" in {config["name"]} config.')
+
+                valid = False
+
+        if not valid:
+            print(f'Ignoring {config_name} config.')
+            configs.pop(config_name)
 
     return configs
 
@@ -104,11 +136,11 @@ def list_configs(configs):
 
 
 def get_new_config_contents(theme, config):
-    warnings = ""
+    warnings = list()
     success = False
 
     config_name = config["name"]
-    config_path = expanduser(config["path"])
+    config_path = config["path"]
     regex = re.compile(config["regex"])
 
     # If we don't have a specific theme name, use the default.
@@ -117,19 +149,22 @@ def get_new_config_contents(theme, config):
     replace = theme.get(config_name, theme["default"])
 
     new_config_contents = list()
-    with open(config_path, 'r') as config_file:
-        for line in config_file:
-            if regex.match(line) and not success:
-                new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
-                if debug:
-                    print(f'found line:  {line}', end='')
-                    print(f'replaced by: {config["pre"] + replace + config["post"]}')
-                success = True
-            else:
-                new_config_contents.append(line)
+    try:
+        with open(config_path, 'r') as config_file:
+            for line in config_file:
+                if regex.match(line) and not success:
+                    new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
+                    if debug:
+                        print(f'found line:  {line}', end='')
+                        print(f'replaced by: {config["pre"] + replace + config["post"]}')
+                    success = True
+                else:
+                    new_config_contents.append(line)
+    except FileNotFoundError:
+        warnings.append(f'No file found at: "{config["path"]}')
 
     if not success:
-        warnings += f'No line matched regex: "{config["regex"]}"'
+        warnings.append(f'No line matched regex: "{config["regex"]}"')
 
     return new_config_contents, warnings
 
@@ -148,17 +183,12 @@ def set_theme_for_config(theme, config):
     if debug:
         print(f'Working on {config["name"]}')
 
-    if config.get("path"):
-        try:
-            new_config_contents, warn = get_new_config_contents(theme, config)
+    new_config_contents, warn = get_new_config_contents(theme, config)
 
-            if not warn:
-                write_new_config_file(config, new_config_contents)
-            else:
-                warnings.append(warn)
-
-        except FileNotFoundError:
-            warnings.append(f'\tNo file found at: "{config["path"]}"')
+    if not warn:
+        write_new_config_file(config, new_config_contents)
+    else:
+        warnings.append(warn)
 
     try:
         cmd = config["cmd"]
