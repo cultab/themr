@@ -34,7 +34,7 @@ def main():
     config_folder_path += "/themr"
 
     configs = load_configs(config_folder_path)
-    themes = load_themes(config_folder_path, [name for name in configs.keys()])
+    themes, invalid_themes = load_themes(config_folder_path, [name for name in configs.keys()])
 
     if args.list_themes:
         list_themes(themes)
@@ -48,6 +48,9 @@ def main():
     if chosen_theme_name is None:
         print("No theme name given")
         exit(1)
+    elif chosen_theme_name in invalid_themes:
+        print(f"Theme {chosen_theme_name} exists but was ignored due to the errors above.")
+        exit(1)
 
     if (chosen_theme := themes.get(chosen_theme_name)) is None:
         print(f'Theme "{chosen_theme_name}" does not exist')
@@ -58,6 +61,8 @@ def main():
 
 def load_themes(folder_path, config_names):
     """Load and validate themes from file."""
+
+    invalid_themes = list()
 
     try:
         with open(f'{folder_path}/themes.yaml') as themes_stream:
@@ -77,10 +82,11 @@ def load_themes(folder_path, config_names):
                     valid = False
 
             if not valid:
-                print(f'Ignoring theme: {theme_name}.')
+                print(f'Ignored theme: {theme_name}.')
                 themes.pop(theme_name)
+                invalid_themes.append(theme_name)
 
-    return themes
+    return themes, invalid_themes
 
 
 def load_configs(folder_path):
