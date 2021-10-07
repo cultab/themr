@@ -156,7 +156,7 @@ def get_new_config_contents(theme, config):
 
     new_config_contents = list()
     try:
-        with open(config_path, 'r') as config_file:
+        with open(expanduser(config_path), 'r') as config_file:
             for line in config_file:
                 if regex.match(line) and not success:
                     new_config_contents.append(config["pre"] + replace + config["post"] + '\n')
@@ -194,7 +194,7 @@ def set_theme_for_config(theme, config):
     if not warn:
         write_new_config_file(config, new_config_contents)
     else:
-        warnings.append(warn)
+        warnings.extend(warn)
 
     try:
         cmd = config["cmd"]
