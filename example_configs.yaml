@@ -2,14 +2,14 @@
 
 xresources:
     path: "~/.config/xrdb/Xresources.xdefaults"
-    regex: '^#include ".*\.xdefaults"'
+    regex: '#include ".*\.xdefaults"'
     pre: '#include "./'
     post: '.xdefaults"'
     cmd: "reload_xrdb"
 
 vim:
     path: "~/.config/nvim/init.vim"
-    regex: '^colorscheme .*'
+    regex: 'colorscheme .*'
     pre: "colorscheme "
     post: ""
 
