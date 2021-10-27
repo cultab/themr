@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -79,7 +80,8 @@ func main() {
             chosen_theme = theme
         }
     }
-     if chosen_theme == nil {
+
+    if chosen_theme == nil {
          fmt.Println("No such theme exists")
          os.Exit(1)
     }
@@ -107,19 +109,59 @@ func set_config_theme(theme conf, config conf) {
     if strings.HasPrefix(path, "~") {
         usr, _ := user.Current()
         path = filepath.Join(usr.HomeDir, path[2:])
-        fmt.Println(path)
+        // fmt.Println(path)
     }
 
     regex, err := regexp.Compile(config["regex"])
     if err != nil {
         fmt.Println("Could not parse regex in config for " + config["name"])
     }
-    fmt.Println(regex)
+    // fmt.Println(regex)
 
-    // read the file line by line
-    // if you match with regex
-    // do the magic
+    name := theme[config["name"]]
+    if name == "" {
+        name = theme["default"]
+    }
+
+    cmd, cmd_exists := config["cmd"]
+
+    file, err := os.ReadFile(path)
+    if err != nil {
+        switch err {
+        case os.ErrNotExist:
+            fmt.Println("File not found error: '" + path + "' was not found")
+        case os.ErrPermission:
+            fmt.Println("Permission error: Not allowed to read '" + path + "'")
+        default:
+            fmt.Println("Error: Cannot open '" + path + "'")
+            fmt.Println(err)
+        }
+        return
+        // return nil, errors.New("Could not read '" + path + "'")
+    }
+    if !regex.Match(file) {
+        fmt.Println("Welllll fuck")
+        fmt.Println(config["name"])
+        println(name)
+        println(config["regex"])
+    }
+    new_contents := regex.ReplaceAll(file, []byte(config["pre"] + name + config["post"]))
+
+    // try to use the same Permission bits, just in case
+    file_stat, _ := os.Stat(path)
     // write back the file :)
+    os.WriteFile(path, new_contents, file_stat.Mode())
+
+    if cmd_exists {
+        if strings.ContainsAny(cmd, "%") {
+            cmd = strings.Replace(cmd, "%", name, 1)
+        }
+        command := exec.Command("sh", "-c", cmd)
+        // just start it and let it fuck off
+        // don't wait for it to finish
+        // TODO: maybe add a switch to make it wait and print it's output for debuging?
+        command.Start()
+    }
 }
 
 func list_themes(themes []conf) {
@@ -143,7 +185,6 @@ func load_configs(config_dir string) ([]conf, error) {
     configs := make(map[string]conf)
 
     file, err := os.ReadFile(config_path)
-
     if err != nil {
         switch err {
         case os.ErrNotExist:
@@ -214,6 +255,15 @@ func load_themes(config_dir string, required_configs []string) ([]conf, error) {
     }
 
     return themes_list, err
+}
+
+func contains_string(container []string, s string) bool {
+    for _, k := range container {
+        if k == s {
+            return true
+        }
+    }
+    return false
 }
 
 func (config conf) contains_key(key string) bool {
