@@ -66,6 +66,10 @@ func main() {
         list_themes(themes)
     }
 
+    if *list_configs_flag || *list_themes_flag {
+        os.Exit(0)
+    }
+
     if *debug { //do nothing
     }
 
