@@ -54,7 +54,7 @@ Configs are stored in ~/.config/themr/configs.yaml as dictionaries containing th
 ```yaml
 vim:
     path: "~/.config/nvim/init.vim"
-    regex: '^colorscheme .*'
+    regex: 'colorscheme .*'
     pre: "colorscheme "
     post: ""
 ```

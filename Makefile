@@ -1,5 +1,8 @@
 PREFIX = /usr/local
 
+build:
+	go build themr.go
+
 install:
 	cp ./themr ${PREFIX}/bin/themr
 	chmod +x ${PREFIX}/bin/themr
@@ -10,5 +13,8 @@ examples:
 
 uninstall:
 	rm -f ${PREFIX}/bin/themr
+
+clean:
+	rm -f themr
 
 .PHONY: install uninstall examples
