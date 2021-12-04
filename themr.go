@@ -18,17 +18,17 @@ import (
 type conf map[string]string
 
 var (
-    debug bool
+    debug *bool
 )
 
 func main() {
 
     parser := argparse.NewParser("themr", "Set a theme in multiple programs by replacing strings in their config files.", &argparse.ParserConfig{DisableDefaultShowHelp: true})
 
-    chosen_theme_name := *parser.String("", "theme", &argparse.Option{Positional: true})
-    list_configs_flag := *parser.Flag("c", "list-configs", &argparse.Option{Help: "list supported configs"})
-    list_themes_flag := *parser.Flag("l", "list-themes", &argparse.Option{Help: "list supported themes"})
-    debug = *parser.Flag("d", "debug", &argparse.Option{Help: "pring debug messages"})
+    chosen_theme_name := parser.String("", "theme", &argparse.Option{Positional: true})
+    list_configs_flag := parser.Flag("c", "list-configs", &argparse.Option{Help: "list supported configs"})
+    list_themes_flag := parser.Flag("l", "list-themes", &argparse.Option{Help: "list supported themes"})
+    debug = parser.Flag("d", "debug", &argparse.Option{Help: "pring debug messages"})
 
     if e := parser.Parse(os.Args[1:]); e != nil {
         fmt.Fprintln(os.Stderr, "error:" + e.Error())
@@ -58,26 +58,26 @@ func main() {
         os.Exit(1)
     }
 
-    if list_configs_flag {
+    if *list_configs_flag {
         list_configs(configs)
     }
 
-    if list_themes_flag {
+    if *list_themes_flag {
         list_themes(themes)
     }
 
-    if list_configs_flag || list_themes_flag {
+    if *list_configs_flag || *list_themes_flag {
         os.Exit(0)
     }
 
-    if chosen_theme_name == "" {
+    if *chosen_theme_name == "" {
         fmt.Fprintln(os.Stderr, "No theme name given")
         os.Exit(1)
     }
 
     var chosen_theme conf
     for _, theme := range themes {
-        if theme["name"] == chosen_theme_name {
+        if theme["name"] == *chosen_theme_name {
             chosen_theme = theme
         }
     }
