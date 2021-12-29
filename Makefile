@@ -5,16 +5,19 @@ build:
 
 install:
 	cp ./themr ${PREFIX}/bin/themr
+	mkdir --parents ${PREFIX}/share/zsh/site-functions
+	cp ./_themr ${PREFIX}/share/zsh/site-functions/_themr
 	chmod +x ${PREFIX}/bin/themr
 
 examples:
-	cp -n ./example_configs.yaml ~/.config/themr/configs.yaml
-	cp -n ./example_themes.yaml ~/.config/themr/themes.yaml
+	cp --no-clobber ./example_configs.yaml ~/.config/themr/configs.yaml
+	cp --no-clobber ./example_themes.yaml ~/.config/themr/themes.yaml
 
 uninstall:
-	rm -f ${PREFIX}/bin/themr
+	rm --force ${PREFIX}/bin/themr
+	rm --force ${PREFIX}/share/zsh/site-functions/_themr
 
 clean:
-	rm -f themr
+	rm --force themr
 
 .PHONY: install uninstall examples

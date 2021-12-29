@@ -164,18 +164,18 @@ func set_config_theme(theme conf, config conf) {
 }
 
 func list_themes(themes []conf) {
-    fmt.Fprintln(os.Stderr, "Found themes:")
+    fmt.Fprintln(os.Stdout, "Found themes:")
 
     for _, theme := range themes {
-        fmt.Fprintln(os.Stderr, "\t" + theme["name"])
+        fmt.Fprintln(os.Stdout, "\t" + theme["name"])
     }
 }
 
 func list_configs(configs []conf) {
-    fmt.Fprintln(os.Stderr, "Found configs:")
+    fmt.Fprintln(os.Stdout, "Found configs:")
 
     for _, theme := range configs {
-        fmt.Fprintln(os.Stderr, "\t" + theme["name"])
+        fmt.Fprintln(os.Stdout, "\t" + theme["name"])
     }
 }
 
