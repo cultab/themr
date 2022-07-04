@@ -1,6 +1,7 @@
 # Config definitions.
 
 xresources:
+    type: colorscheme
     path: "~/.config/xrdb/Xresources.xdefaults"
     regex: '#include ".*\.xdefaults"'
     pre: '#include "./'
@@ -8,12 +9,14 @@ xresources:
     cmd: "reload_xrdb"
 
 vim:
+    type: colorscheme
     path: "~/.config/nvim/init.vim"
     regex: 'colorscheme .*'
     pre: "colorscheme "
     post: ""
 
 lightline:
+    type: colorscheme
     path: "~/.config/nvim/init.vim"
     regex: '    \\   "colorscheme" : .*'
     pre: '    \   "colorscheme" : "'

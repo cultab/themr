@@ -1,0 +1,17 @@
+# Theme definitions.
+
+# one name for this theme
+tokyonight:
+    colorscheme: "tokyonight"
+
+# different names for each program
+potato:
+    vim: "potato"
+    lightline: "potato2"
+    xresources: "potato3"
+
+# github-light by default but special case for lightline and xresources
+github_light:
+    colorscheme: "github-light"
+    lightline: "github_light"
+    xresources: "github_light"
