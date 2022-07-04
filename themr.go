@@ -23,8 +23,10 @@ var (
 
 func main() {
 
+    // init parser
     parser := argparse.NewParser("themr", "Set a theme in multiple programs by replacing strings in their config files.", &argparse.ParserConfig{DisableDefaultShowHelp: true})
 
+    // get args
     chosen_theme_name := parser.String("", "theme", &argparse.Option{Positional: true})
     list_configs_flag := parser.Flag("c", "list-configs", &argparse.Option{Help: "list supported configs"})
     list_themes_flag := parser.Flag("l", "list-themes", &argparse.Option{Help: "list supported themes"})
@@ -35,23 +37,27 @@ func main() {
         return
     }
 
+    // get config path
     config_dir, err := os.UserConfigDir()
     config_dir += "/themr/"
     if err != nil {
         fmt.Fprintln(os.Stderr, "Could not determing User Config Directory. (is $HOME unset?)")
         os.Exit(1)
     }
+    // load configs
     configs, err := load_configs(config_dir)
     if err != nil {
         fmt.Fprintln(os.Stderr, err.Error())
         os.Exit(1)
     }
 
+    // add config name into each config
     var config_names []string
     for _, config := range configs {
         config_names = append(config_names, config["name"])
     }
 
+    // load themes
     themes, err := load_themes(config_dir, config_names)
     if err != nil {
         fmt.Fprintln(os.Stderr, err.Error())
@@ -98,7 +104,7 @@ func set_theme(theme conf, configs []conf) {
         wg.Add(1)
         go func(theme conf, config conf) {
             set_config_theme(theme, config)
-            wg.Done() // defer is overkill here
+            defer wg.Done()
         }(theme, config)
     }
     wg.Wait()
@@ -129,7 +135,7 @@ func set_config_theme(theme conf, config conf) {
     file, err := os.ReadFile(path)
     if err != nil {
         if errors.Is(err, os.ErrNotExist) {
-            err = fmt.Errorf("File not found error: '" + path + "' was not found")
+            err = fmt.Errorf("File not found: '" + path + "' was not found")
         } else if errors.Is(err, os.ErrPermission) {
             err = fmt.Errorf("Permission error: Not allowed to read '" + path + "'")
         } else {
@@ -139,10 +145,8 @@ func set_config_theme(theme conf, config conf) {
         return
     }
     if !regex.Match(file) {
-        fmt.Fprintln(os.Stderr, "Welllll fuck")
-        fmt.Fprintln(os.Stderr, config["name"])
-        println(name)
-        println(config["regex"])
+        fmt.Fprintln(os.Stderr, "Configuration error: Regex failed to match a line in config for " + name)
+        fmt.Fprintln(os.Stderr, "regex referenced: " + config["regex"])
     }
     new_contents := regex.ReplaceAll(file, []byte(config["pre"] + name + config["post"]))
 
@@ -156,8 +160,7 @@ func set_config_theme(theme conf, config conf) {
             cmd = strings.Replace(cmd, "%", name, 1)
         }
         command := exec.Command("sh", "-c", cmd)
-        // just start it and let it fuck off
-        // don't wait for it to finish
+        // just start it and let it fuck off, don't wait for it to finish
         // TODO: maybe add a switch to make it wait and print it's output for debuging?
         command.Start()
     }
@@ -193,7 +196,10 @@ func load_configs(config_dir string) ([]conf, error) {
         return nil, fmt.Errorf("Could not read '" + config_path + "'", err)
     }
 
-    yaml.Unmarshal(file, &configs)
+    err = yaml.Unmarshal(file, &configs)
+    if err != nil {
+        return nil, fmt.Errorf("Unmarshaling error: '" + config_path + "' was invalid")
+    }
 
     var configs_list []conf
 
