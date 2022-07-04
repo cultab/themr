@@ -17,7 +17,10 @@ import (
 
 type conf map[string]string
 
+type set map[string]struct{}
+
 var (
+    member struct{}
     debug *bool
 )
 
@@ -51,14 +54,18 @@ func main() {
         os.Exit(1)
     }
 
-    // add config name into each config
-    var config_names []string
+    // valid config types is the set resulting from
+    // the union of config names and their types
+    config_types := make(set)
     for _, config := range configs {
-        config_names = append(config_names, config["name"])
+        config_types[config["name"]] = member
+        if config_type, exists := config["type"]; exists {
+            config_types[config_type] = member
+        }
     }
 
     // load themes
-    themes, err := load_themes(config_dir, config_names)
+    themes, err := load_themes(config_dir, config_types)
     if err != nil {
         fmt.Fprintln(os.Stderr, err.Error())
         os.Exit(1)
@@ -66,13 +73,11 @@ func main() {
 
     if *list_configs_flag {
         list_configs(configs)
+        os.Exit(0)
     }
 
     if *list_themes_flag {
         list_themes(themes)
-    }
-
-    if *list_configs_flag || *list_themes_flag {
         os.Exit(0)
     }
 
@@ -97,9 +102,24 @@ func main() {
 
 }
 
-func set_theme(theme conf, configs []conf) {
-    var wg sync.WaitGroup
+func set_theme(theme conf, all_configs []conf) {
 
+    // only keep configs with appropriate types
+    var configs[] conf
+    for _, config := range all_configs {
+        if theme.contains_key(config["type"]) {
+            configs = append(configs, config)
+        }
+    }
+
+    if *debug {
+        for _, config := range configs {
+            set_config_theme(theme, config)
+        }
+        return
+    }
+
+    var wg sync.WaitGroup
     for _, config := range configs {
         wg.Add(1)
         go func(theme conf, config conf) {
@@ -116,52 +136,57 @@ func set_config_theme(theme conf, config conf) {
     if strings.HasPrefix(path, "~") {
         usr, _ := user.Current()
         path = filepath.Join(usr.HomeDir, path[2:])
-        // fmt.Fprintln(os.Stderr, path)
     }
 
     regex, err := regexp.Compile(config["regex"])
     if err != nil {
-        fmt.Fprintln(os.Stderr, "Could not parse regex in config for " + config["name"])
-    }
-    // fmt.Fprintln(os.Stderr, regex)
-
-    name := theme[config["name"]]
-    if name == "" {
-        name = theme["default"]
+        fmt.Fprintln(os.Stderr, fmt.Errorf("Could not parse regex for " + config["name"] + ": %w", err))
+        return
     }
 
-    cmd, cmd_exists := config["cmd"]
+    theme_name := theme[config["type"]]
 
     file, err := os.ReadFile(path)
     if err != nil {
-        if errors.Is(err, os.ErrNotExist) {
+        switch {
+        case errors.Is(err, os.ErrNotExist):
             err = fmt.Errorf("File not found: '" + path + "' was not found")
-        } else if errors.Is(err, os.ErrPermission) {
+        case errors.Is(err, os.ErrPermission):
             err = fmt.Errorf("Permission error: Not allowed to read '" + path + "'")
-        } else {
+        default:
             err = fmt.Errorf("Could not read '" + path + "'", err)
         }
         fmt.Fprintln(os.Stderr, err)
         return
     }
     if !regex.Match(file) {
-        fmt.Fprintln(os.Stderr, "Configuration error: Regex failed to match a line in config for " + name)
+        fmt.Fprintln(os.Stderr, "Configuration error: Regex failed to match a line for " + theme_name)
         fmt.Fprintln(os.Stderr, "regex referenced: " + config["regex"])
+        return
     }
-    new_contents := regex.ReplaceAll(file, []byte(config["pre"] + name + config["post"]))
+    new_contents := regex.ReplaceAll(file, []byte(config["pre"] + theme_name + config["post"]))
 
     // try to use the same Permission bits, just in case
     file_stat, _ := os.Stat(path)
     // write back the file :)
     os.WriteFile(path, new_contents, file_stat.Mode())
 
-    if cmd_exists {
+    if cmd, exists := config["cmd"]; exists {
         if strings.ContainsAny(cmd, "%") {
-            cmd = strings.Replace(cmd, "%", name, 1)
+            cmd = strings.Replace(cmd, "%", theme_name, 1)
         }
         command := exec.Command("sh", "-c", cmd)
+
+        if *debug {
+            fmt.Fprintln(os.Stderr, "Running command for " + config["name"] + ": " + cmd)
+            out, err := command.CombinedOutput()
+            if err != nil {
+                fmt.Fprintln(os.Stderr, fmt.Errorf("Command for " + config["name"] + " failed: %w", err))
+            }
+            fmt.Fprintln(os.Stderr, string(out))
+            return
+        }
         // just start it and let it fuck off, don't wait for it to finish
-        // TODO: maybe add a switch to make it wait and print it's output for debuging?
         command.Start()
     }
 }
@@ -188,17 +213,19 @@ func load_configs(config_dir string) ([]conf, error) {
 
     file, err := os.ReadFile(config_path)
     if err != nil {
-        if errors.Is(err, os.ErrNotExist) {
+        switch {
+        case errors.Is(err, os.ErrNotExist):
             return nil, fmt.Errorf("File not found error: '" + config_path + "' was not found")
-        } else if errors.Is(err, os.ErrPermission) {
+        case errors.Is(err, os.ErrPermission):
             return nil, fmt.Errorf("Permission error: Not allowed to read '" + config_path + "'")
+        default:
+            return nil, fmt.Errorf("Could not read '" + config_path + "'", err)
         }
-        return nil, fmt.Errorf("Could not read '" + config_path + "'", err)
     }
 
     err = yaml.Unmarshal(file, &configs)
     if err != nil {
-        return nil, fmt.Errorf("Unmarshaling error: '" + config_path + "' was invalid")
+        return nil, fmt.Errorf("Unmarshaling error: '" + config_path + "' was invalid because %w", err)
     }
 
     var configs_list []conf
@@ -219,19 +246,21 @@ func load_configs(config_dir string) ([]conf, error) {
     return configs_list, err
 }
 
-func load_themes(config_dir string, required_configs []string) ([]conf, error) {
+func load_themes(config_dir string, config_types set) ([]conf, error) {
     theme_path := config_dir + "themes.yaml"
     themes := make(map[string]conf)
 
     file, err := os.ReadFile(theme_path)
 
     if err != nil {
-        if errors.Is(err, os.ErrNotExist) {
+        switch {
+        case errors.Is(err, os.ErrNotExist):
             return nil, fmt.Errorf("File not found error: '" + theme_path + "' was not found")
-        } else if errors.Is(err, os.ErrPermission) {
+        case errors.Is(err, os.ErrPermission):
             return nil, fmt.Errorf("Permission error: Not allowed to read '" + theme_path + "'")
+        default:
+            return nil, fmt.Errorf("Could not read '" + theme_path + "'", err)
         }
-        return nil, fmt.Errorf("Could not read '" + theme_path + "'", err)
     }
 
     yaml.Unmarshal(file, &themes)
@@ -240,12 +269,10 @@ func load_themes(config_dir string, required_configs []string) ([]conf, error) {
 
     for theme_name, theme := range themes {
         theme["name"] = theme_name
-
-        if theme["default"] == "" {
-            res, missing := theme.contains_all_keys(required_configs)
-            if !res {
-                return nil, errors.New("Missing key(s): [" + strings.Join(missing, ", ") + "] in theme " + theme_name)
-            }
+        
+        // check if theme contains at least one config type
+        if ! theme.contains_at_least_one_key(config_types) {
+            return nil, fmt.Errorf("Theme must have at least one config type: '" + theme["name"] + "' does not!")
         }
 
         themes_list = append(themes_list, theme)
@@ -254,18 +281,29 @@ func load_themes(config_dir string, required_configs []string) ([]conf, error) {
     return themes_list, err
 }
 
-func contains_string(container []string, s string) bool {
-    for _, k := range container {
-        if k == s {
+// LOL NO GENERICS {
+func (config conf) contains_key(key interface{}) bool {
+    for k := range config {
+        if k == key {
             return true
         }
     }
     return false
 }
 
-func (config conf) contains_key(key string) bool {
-    for k := range config {
+func (key_set set) contains_key(key interface{}) bool {
+    for k := range key_set {
         if k == key {
+            return true
+        }
+    }
+    return false
+}
+// } --> LOL NO GENERICS
+
+func (config conf) contains_at_least_one_key(keys set) bool {
+    for key := range config {
+        if config.contains_key(key) {
             return true
         }
     }
