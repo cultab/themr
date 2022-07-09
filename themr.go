@@ -144,7 +144,12 @@ func set_config_theme(theme conf, config conf) {
         return
     }
 
+    // use theme name for the type of config
     theme_name := theme[config["type"]]
+    // unless it's overwitten by a theme specifying a theme_name for a config
+    if name, exists := theme[config["name"]]; exists {
+        theme_name = name
+    }
 
     file, err := os.ReadFile(path)
     if err != nil {
