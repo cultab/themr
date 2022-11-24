@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
 	"os/user"
@@ -22,9 +24,15 @@ type set map[string]struct{}
 var (
     member struct{}
     debug *bool
+    Log *log.Logger
+    Error *log.Logger
+    Debug *log.Logger
 )
 
 func main() {
+
+    Log = log.New(os.Stdout, "", 0)
+    Error = log.New(os.Stderr, "", 0)
 
     // init parser
     parser := argparse.NewParser("themr", "Set a theme in multiple programs by replacing strings in their config files.", &argparse.ParserConfig{DisableDefaultShowHelp: true})
@@ -35,23 +43,26 @@ func main() {
     list_themes_flag := parser.Flag("l", "list-themes", &argparse.Option{Help: "list supported themes"})
     debug = parser.Flag("d", "debug", &argparse.Option{Help: "pring debug messages"})
 
+    if *debug {
+        Debug = log.New(os.Stderr, "", 0)
+    } else {
+        Debug = log.New(io.Discard, "", 0)
+    }
+
     if e := parser.Parse(os.Args[1:]); e != nil {
-        fmt.Fprintln(os.Stderr, "error:" + e.Error())
-        return
+        Error.Fatal("error:" + e.Error())
     }
 
     // get config path
     config_dir, err := os.UserConfigDir()
     config_dir += "/themr/"
     if err != nil {
-        fmt.Fprintln(os.Stderr, "Could not determing User Config Directory. (is $HOME unset?)")
-        os.Exit(1)
+        Error.Fatal("Could not determing User Config Directory. (is $HOME unset?)")
     }
     // load configs
     configs, err := load_configs(config_dir)
     if err != nil {
-        fmt.Fprintln(os.Stderr, err.Error())
-        os.Exit(1)
+        Error.Fatal(err.Error())
     }
 
     // valid config types is the set resulting from
@@ -67,8 +78,7 @@ func main() {
     // load themes
     themes, err := load_themes(config_dir, config_types)
     if err != nil {
-        fmt.Fprintln(os.Stderr, err.Error())
-        os.Exit(1)
+        Error.Fatal(err.Error())
     }
 
     if *list_configs_flag {
@@ -82,8 +92,7 @@ func main() {
     }
 
     if *chosen_theme_name == "" {
-        fmt.Fprintln(os.Stderr, "No theme name given")
-        os.Exit(1)
+        Error.Fatal("No theme name given")
     }
 
     var chosen_theme conf
@@ -94,8 +103,7 @@ func main() {
     }
 
     if chosen_theme == nil {
-         fmt.Fprintln(os.Stderr, "No such theme exists")
-         os.Exit(1)
+         Error.Fatal("No such theme exists")
     }
 
     set_theme(chosen_theme, configs)
@@ -140,7 +148,7 @@ func set_config_theme(theme conf, config conf) {
 
     regex, err := regexp.Compile(config["regex"])
     if err != nil {
-        fmt.Fprintln(os.Stderr, fmt.Errorf("Could not parse regex for " + config["name"] + ": %w", err))
+        Error.Println(fmt.Errorf("Could not parse regex for " + config["name"] + ": %w", err))
         return
     }
 
@@ -153,20 +161,12 @@ func set_config_theme(theme conf, config conf) {
 
     file, err := os.ReadFile(path)
     if err != nil {
-        switch {
-        case errors.Is(err, os.ErrNotExist):
-            err = fmt.Errorf("File not found: '" + path + "' was not found")
-        case errors.Is(err, os.ErrPermission):
-            err = fmt.Errorf("Permission error: Not allowed to read '" + path + "'")
-        default:
-            err = fmt.Errorf("Could not read '" + path + "'", err)
-        }
-        fmt.Fprintln(os.Stderr, err)
+        Error.Println(err)
         return
     }
     if !regex.Match(file) {
-        fmt.Fprintln(os.Stderr, "Configuration error: Regex failed to match a line for " + theme_name)
-        fmt.Fprintln(os.Stderr, "regex referenced: " + config["regex"])
+        Error.Println("Configuration error: Regex failed to match a line for " + theme_name)
+        Error.Println("regex referenced: " + config["regex"])
         return
     }
     new_contents := regex.ReplaceAll(file, []byte(config["pre"] + theme_name + config["post"]))
@@ -183,32 +183,32 @@ func set_config_theme(theme conf, config conf) {
         command := exec.Command("sh", "-c", cmd)
 
         if *debug {
-            fmt.Fprintln(os.Stderr, "Running command for " + config["name"] + ": " + cmd)
+            Debug.Println("Running command for " + config["name"] + ": " + cmd)
             out, err := command.CombinedOutput()
             if err != nil {
-                fmt.Fprintln(os.Stderr, fmt.Errorf("Command for " + config["name"] + " failed: %w", err))
+                Debug.Println(fmt.Errorf("Command for " + config["name"] + " failed: %w", err))
             }
-            fmt.Fprintln(os.Stderr, string(out))
-            return
+            Debug.Println(string(out))
+        } else {
+            // just start it and let it fuck off, don't wait for it to finish
+            command.Start()
         }
-        // just start it and let it fuck off, don't wait for it to finish
-        command.Start()
     }
 }
 
 func list_themes(themes []conf) {
-    fmt.Fprintln(os.Stdout, "Found themes:")
+    Log.Println("Found themes:")
 
     for _, theme := range themes {
-        fmt.Fprintln(os.Stdout, "\t" + theme["name"])
+        Log.Println("\t" + theme["name"])
     }
 }
 
 func list_configs(configs []conf) {
-    fmt.Fprintln(os.Stdout, "Found configs:")
+    Log.Println("Found configs:")
 
     for _, theme := range configs {
-        fmt.Fprintln(os.Stdout, "\t" + theme["name"])
+        Log.Println("\t" + theme["name"])
     }
 }
 
@@ -258,14 +258,7 @@ func load_themes(config_dir string, config_types set) ([]conf, error) {
     file, err := os.ReadFile(theme_path)
 
     if err != nil {
-        switch {
-        case errors.Is(err, os.ErrNotExist):
-            return nil, fmt.Errorf("File not found error: '" + theme_path + "' was not found")
-        case errors.Is(err, os.ErrPermission):
-            return nil, fmt.Errorf("Permission error: Not allowed to read '" + theme_path + "'")
-        default:
-            return nil, fmt.Errorf("Could not read '" + theme_path + "'", err)
-        }
+        return nil, err
     }
 
     yaml.Unmarshal(file, &themes)
