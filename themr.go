@@ -17,9 +17,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type conf map[string]string
+type Map[K comparable, V any] map[K]V
 
-type set map[string]struct{}
+type conf Map[string, string]
+
+type set Map[string, struct{}]
+
 
 var (
     member struct{}
@@ -115,7 +118,7 @@ func set_theme(theme conf, all_configs []conf) {
     // only keep configs with appropriate types
     var configs[] conf
     for _, config := range all_configs {
-        if theme.contains_key(config["type"]) {
+        if theme.Map().contains_key(config["type"]) {
             configs = append(configs, config)
         }
     }
@@ -240,7 +243,7 @@ func load_configs(config_dir string) ([]conf, error) {
 
         required_keys := []string{"path", "regex", "pre", "post"}
 
-        res, missing := config.contains_all_keys(required_keys)
+        res, missing := config.Map().contains_all_keys(required_keys)
         if !res {
             return nil, errors.New("Missing key(s): [" + strings.Join(missing, ", ") + "] in config for " + config_name)
         }
@@ -269,7 +272,7 @@ func load_themes(config_dir string, config_types set) ([]conf, error) {
         theme["name"] = theme_name
         
         // check if theme contains at least one config type
-        if ! theme.contains_at_least_one_key(config_types) {
+        if ! theme.Map().contains_at_least_one_key(config_types) {
             return nil, fmt.Errorf("Theme must have at least one config type: '" + theme["name"] + "' does not!")
         }
 
@@ -279,9 +282,18 @@ func load_themes(config_dir string, config_types set) ([]conf, error) {
     return themes_list, err
 }
 
-// LOL NO GENERICS {
-func (config conf) contains_key(key interface{}) bool {
-    for k := range config {
+// generic methods, kinda
+
+func (c conf) Map() Map[string, string] {
+    return Map[string,string](c)
+}
+
+func (s set) Map() Map[string, struct{}] {
+    return Map[string,struct{}](s)
+}
+
+func (m Map[K, V]) contains_key(key K) bool {
+    for k := range m {
         if k == key {
             return true
         }
@@ -289,30 +301,20 @@ func (config conf) contains_key(key interface{}) bool {
     return false
 }
 
-func (key_set set) contains_key(key interface{}) bool {
-    for k := range key_set {
-        if k == key {
-            return true
-        }
-    }
-    return false
-}
-// } --> LOL NO GENERICS
-
-func (config conf) contains_at_least_one_key(keys set) bool {
-    for key := range config {
-        if config.contains_key(key) {
+func (m Map[K, V]) contains_at_least_one_key(keys set) bool {
+    for key := range m {
+        if m.contains_key(key) {
             return true
         }
     }
     return false
 }
 
-func (config conf) contains_all_keys(keys []string) (bool, []string) {
-    var not_contained []string
+func (m Map[K, V]) contains_all_keys(keys []K) (bool, []K) {
+    var not_contained []K
 
     for _, key := range keys {
-        if !config.contains_key(key) {
+        if !m.contains_key(key) {
             not_contained = append(not_contained, key)
         }
     }
