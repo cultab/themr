@@ -28,8 +28,9 @@ optional arguments:
 ```sh
 make install
 ```
+Includes zsh completion script, installed to `$PREFIX/share/zsh/site-functions/`
 
-and optionally, copy over the example configs and themes
+Optionally, copy over the example configs and themes
 
 ```sh
 make examples
@@ -41,8 +42,7 @@ Configs are stored in $XDG_CONFIG_HOME/themr/configs.yaml as dictionaries contai
 
 * path: the path to the config file to edit
 * regex: a regular expression used to find the line to replace
-* pre: text that will go before the replaced string
-* post: text that will go after the replaced string
+* replace: text that will go inplace of the old line
 * type: the type of config, eg colorscheme, polybar config. (optional)
 * cmd: a shell command to run after making the replacement (optional)
 
@@ -52,15 +52,17 @@ Configs are stored in $XDG_CONFIG_HOME/themr/configs.yaml as dictionaries contai
 vim:
     path: "~/.config/nvim/init.vim" # path to the file to edit
     regex: 'colorscheme .*'         # regex to find the line to edit
-    pre: "colorscheme "             # what to put before the theme name
-    post: ""                        # what to put after the theme name
+    replace: "colorscheme {}"       # what to put instead of the old line,
     type: colorscheme               # type of config
+    cmd: "echo {}"                  # a command to run
 ```
+
+The placeholder `{}` is replaced by the theme name at runtime.
 
 # Themes
 
 Themes are stored in $XDG_CONFIG_HOME/themr/themes.yaml as dictionaries containing key value pairs with
-the name of the theme for each kind of config. 
+the name of the theme for each kind of config.
 
 A default name can be defined so that you don't have to repeat the name for each config if it's the same.
 If a default name is not defined you *must* define a name for all your defined configs.
