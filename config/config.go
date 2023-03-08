@@ -55,6 +55,10 @@ func (c yamlConfig) Validate(name string) error {
 	if c.Replace == "" {
 		missing = append(missing, "replace")
 	}
+    if ! strings.Contains(c.Cmd, "{}") {
+        return errors.New("missing '{}' placeholder for command `"+c.Cmd+"` in config for " + name)
+
+    }
 
 	if len(missing) != 0 {
 		return errors.New("missing key(s): [" + strings.Join(missing, ", ") + "] in config for " + name)
