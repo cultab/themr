@@ -1,7 +1,7 @@
 PREFIX = /usr/local
 
 build:
-	go build themr.go
+	go build .
 
 install:
 	cp ./themr ${PREFIX}/bin/themr

@@ -1,4 +1,4 @@
-module example.com/m/v2
+module themr
 
 go 1.19
 
