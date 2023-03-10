@@ -55,9 +55,8 @@ func (c yamlConfig) Validate(name string) error {
 	if c.Replace == "" {
 		missing = append(missing, "replace")
 	}
-    if ! strings.Contains(c.Cmd, "{}") {
-        return errors.New("missing '{}' placeholder for command `"+c.Cmd+"` in config for " + name)
-
+    if ! strings.Contains(c.Replace, "{}") {
+        return errors.New("missing '{}' placeholder for replacement line:\n"+c.Replace+"\nin config for " + name)
     }
 
 	if len(missing) != 0 {
