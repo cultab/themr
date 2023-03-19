@@ -77,7 +77,10 @@ func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if err != nil {
 			return fmt.Errorf("Could not parse regex for "+name+": %w", err)
 		}
-		cmd := exec.Command("sh", "-c", conf.Cmd)
+        var cmd *exec.Cmd
+        if conf.Cmd != "" {
+            cmd = exec.Command("sh", "-c", conf.Cmd)
+        }
 		*c = append([]Config(*c), Config{
 			Name:    name,
 			Type:    conf.Type,
@@ -116,26 +119,33 @@ func Load_configs(config_dir string) ([]Config, error) {
 	return confs, err
 }
 
-func (c Config) RunCmd(theme_name string, debug bool) {
-	if c.Cmd != nil {
-		return
+func (c Config) RunCmd(theme_name string, debug bool) error {
+	if c.Cmd == nil {
+		return nil
 	}
+    for i, arg := range c.Cmd.Args {
+        if strings.Contains(arg, "{}") {
+            c.Cmd.Args[i] = strings.ReplaceAll(arg, "{}", theme_name)
+        }
+    }
 
 	if debug {
-		logger.Debug("Running command for " + c.Name + ": " + strings.Join(c.Cmd.Args, " "))
+        logger.Debug("Running", "config", c.Name, "command:", strings.Join(c.Cmd.Args, " "))
+        // logger.Debug("Attempting to run:", "cmd ", config.Cmd.Args, "config", config.Name)
 
 		out, err := c.Cmd.CombinedOutput()
 		if err != nil {
-			logger.Warn(fmt.Errorf("Command for "+c.Name+" failed: %w", err).Error())
+            return err
 		}
 		msgs := strings.Split(string(out), "\n")
 		for i, msg := range msgs[0 : len(msgs)-1] {
-			logger.Debug(fmt.Sprintf("%5s", fmt.Sprintf("[%d]:", i)), msg)
+			logger.Debug(fmt.Sprintf("%5s", fmt.Sprintf("[%d]: ", i)) + msg)
 		}
-		return
+		return nil
 	}
 
     // PERF: just start it and let it fuck off, don't wait for it to finish
 	c.Cmd.Start()
+    return nil
 
 }

@@ -58,16 +58,18 @@ func main() {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
-
 	// valid config types is the set resulting from
 	// the union of config names and their types
 	config_types := make(set)
+	var str_configs string
 	for _, config := range configs {
+		str_configs += config.Name + "\n"
 		config_types[config.Name] = member
 		if config_type := config.Type; config_type != "" {
 			config_types[config_type] = member
 		}
 	}
+	logger.Debug(fmt.Sprintf("loaded %d configs", len(configs)), "names", str_configs)
 
 	// load themes
 	themes, err := load_themes(config_dir, config_types)
@@ -75,6 +77,11 @@ func main() {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
+	var str_themes string
+	for _, theme := range themes {
+		str_themes += theme["name"] + "\n"
+	}
+	logger.Debug(fmt.Sprintf("loaded %d themes", len(themes)), "names", str_themes)
 
 	if *list_configs_flag {
 		list_configs(configs)
@@ -173,7 +180,10 @@ func (theme theme_info) set_for(config config.Config) {
 		logger.Error(err.Error())
 	}
 
-	config.RunCmd(theme_name, *debug)
+	err = config.RunCmd(theme_name, *debug)
+	if err != nil {
+		logger.Warn(fmt.Errorf("Command for "+config.Name+" failed: %w", err).Error())
+	}
 }
 
 func list_themes(themes []theme_info) {
