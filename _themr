@@ -1,8 +1,8 @@
 #compdef themr
 
 # add completions for themes
-for theme in $(themr --list-themes | tail -n +2 | sed 's/\t\|\s//g' | sort); do
-    compadd -J themes - $theme
+for theme in $(themr --list-themes | tail -n +2 | sed 's/^[\t\s]//g' | sort); do
+    compadd -J themes - "$theme"
 done
 
 # parse output of themr --help
