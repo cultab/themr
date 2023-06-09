@@ -73,10 +73,17 @@ func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if err := conf.Validate(name); err != nil {
 			return err
 		}
+
+        // if no type was given, use the name as the type
+        if conf.Type == "" {
+            conf.Type = name
+        }
 		regex, err := regexp.Compile(conf.Regex)
 		if err != nil {
 			return fmt.Errorf("Could not parse regex for "+name+": %w", err)
 		}
+
+
         var cmd *exec.Cmd
         if conf.Cmd != "" {
             cmd = exec.Command("sh", "-c", conf.Cmd)

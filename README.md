@@ -53,8 +53,8 @@ vim:
     path: "~/.config/nvim/init.vim" # path to the file to edit
     regex: 'colorscheme .*'         # regex to find the line to edit
     replace: "colorscheme {}"       # what to put instead of the old line,
-    type: colorscheme               # type of config
-    cmd: "echo {}"                  # a command to run
+    type: colorscheme               # type of config, (if empty the name is used, in this example "vim")
+    cmd: "echo {}"                  # a command to run (optional)
 ```
 
 The placeholder `{}` is replaced by the theme name at runtime.
