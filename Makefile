@@ -1,4 +1,7 @@
 PREFIX = /usr/local
+VERSION = v0.2.1
+
+MACHINE := $(shell uname --machine)
 
 build:
 	go build .
@@ -16,6 +19,23 @@ examples:
 uninstall:
 	rm --force ${PREFIX}/bin/themr
 	rm --force ${PREFIX}/share/zsh/site-functions/_themr
+
+binary-release: build
+	tar -czf themr-${VERSION}-${MACHINE}.tar.gz themr
+
+source-release:
+	tar -czf themr_${VERSION}_source.tar.gz \
+		themr.go \
+		genericMap.go \
+		config/config.go \
+		go.mod \
+		go.sum \
+		_themr \
+		Makefile \
+		example_themes.yaml \
+		example_configs.yaml \
+		LICENSE \
+		README.md
 
 clean:
 	rm --force themr
