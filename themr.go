@@ -162,7 +162,7 @@ func (theme theme_info) set_for(config config.Config) {
 		return
 	}
 	if !config.Regex.Match(file) {
-		logger.Error("Configuration: Regex `" + config.Regex.String() + "` failed to match a line for " + theme_name)
+        logger.Error("Configuration: Regex `" + config.Regex.String() + "` failed to match in file: " + config.Path)
 		return
 	}
 
