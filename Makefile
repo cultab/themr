@@ -1,7 +1,6 @@
 PREFIX = /usr/local
-VERSION = v0.2.1
-
-MACHINE := $(shell uname --machine)
+VERSION = $(shell grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' themr.go)
+MACHINE = $(shell uname --machine)
 
 build:
 	go build .
@@ -40,4 +39,4 @@ source-release:
 clean:
 	rm --force themr
 
-.PHONY: install uninstall examples
+.PHONY: install uninstall examples binary-release source-release build

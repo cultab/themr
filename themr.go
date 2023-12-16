@@ -8,16 +8,19 @@ import (
 	"strings"
 	"sync"
 
+	"themr/config"
+
 	"github.com/charmbracelet/log"
 	"github.com/hellflame/argparse"
 	"gopkg.in/yaml.v3"
-	"themr/config"
 )
 
 var (
-	logger log.Logger
-	debug  *bool
+	logger  log.Logger
+	debug   *bool
 )
+
+const VERSION = "0.2.3"
 
 func init() {
 	logger = log.New(log.WithTimeFormat(""))
@@ -29,6 +32,7 @@ func main() {
 	chosen_theme_name := parser.String("", "theme", &argparse.Option{Positional: true})
 	list_configs_flag := parser.Flag("c", "list-configs", &argparse.Option{Help: "list supported configs"})
 	list_themes_flag := parser.Flag("l", "list-themes", &argparse.Option{Help: "list supported themes"})
+	print_version := parser.Flag("v", "version", &argparse.Option{Help: "print version"})
 	debug = parser.Flag("d", "debug", &argparse.Option{Help: "print debug messages"})
 
 	if e := parser.Parse(nil); e != nil {
@@ -44,6 +48,11 @@ func main() {
 	}
 
 	config.SetLogger(logger)
+
+	if *print_version {
+		fmt.Println(os.Args[0], "v" + VERSION)
+		os.Exit(0)
+	}
 
 	// get config path
 	config_dir, err := os.UserConfigDir()

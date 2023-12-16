@@ -20,6 +20,7 @@ optional arguments:
   -h, --help          show this help message and exit
   -l, --list-themes   list supported themes and exit
   -c, --list-configs  list supported configs and exit
+  -v, --version       print version
   -d, --debug         print debug messages
 ```
 
