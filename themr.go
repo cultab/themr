@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -166,25 +167,26 @@ func (theme theme_info) set_for(config config.Config) {
 	}
 
 	file, err := os.ReadFile(path)
+    // if the config tells use to create the file if it doesn't exist
+    // we just place the "Replace" string in the "file"'s contents
+    // and write those back
 	if err != nil {
-		logger.Error(err.Error())
-		return
+		if !(config.Create && errors.Is(err, os.ErrNotExist)) {
+			logger.Error(err.Error())
+			return
+		}
+		file = []byte(config.Replace)
 	}
 	if !config.Regex.Match(file) {
-        logger.Error("Configuration: Regex `" + config.Regex.String() + "` failed to match in file: " + config.Path)
+		logger.Error("Configuration: Regex `" + config.Regex.String() + "` failed to match in file: " + config.Path)
 		return
 	}
 
 	line := strings.ReplaceAll(config.Replace, "{}", theme_name)
 	new_contents := config.Regex.ReplaceAll(file, []byte(line))
 
-	// try to use the same Permission bits, just in case
-	file_stat, err := os.Stat(path)
-	if err != nil {
-		logger.Error(err.Error())
-	}
 	// write back the file :)
-	err = os.WriteFile(path, new_contents, file_stat.Mode())
+	err = os.WriteFile(path, new_contents, os.FileMode(0664))
 	if err != nil {
 		logger.Error(err.Error())
 	}

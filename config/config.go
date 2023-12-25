@@ -24,6 +24,7 @@ type yamlConfig struct {
 	Path    string `yaml:"path"`
 	Regex   string `yaml:"regex"`
 	Replace string `yaml:"replace"`
+	Create  string `yaml:"create"`
 	Cmd     string `yaml:"cmd"`
 }
 
@@ -38,6 +39,7 @@ type Config struct {
 	Regex   regexp.Regexp
 	Replace string
 	Cmd     *exec.Cmd
+	Create  bool
 }
 
 // type alias for a slice of Config
@@ -55,9 +57,9 @@ func (c yamlConfig) Validate(name string) error {
 	if c.Replace == "" {
 		missing = append(missing, "replace")
 	}
-    if ! strings.Contains(c.Replace, "{}") {
-        return errors.New("missing '{}' placeholder for replacement line:\n"+c.Replace+"\nin config for " + name)
-    }
+	if !strings.Contains(c.Replace, "{}") {
+		return errors.New("missing '{}' placeholder for replacement line:\n" + c.Replace + "\nin config for " + name)
+	}
 
 	if len(missing) != 0 {
 		return errors.New("missing key(s): [" + strings.Join(missing, ", ") + "] in config for " + name)
@@ -67,26 +69,34 @@ func (c yamlConfig) Validate(name string) error {
 
 func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	cf := yamlConfigFile{}
-	unmarshal(&cf)
+	err := unmarshal(&cf)
+	if err != nil {
+		return err
+	}
 
 	for name, conf := range cf {
-		if err := conf.Validate(name); err != nil {
+		if err = conf.Validate(name); err != nil {
 			return err
 		}
 
-        // if no type was given, use the name as the type
-        if conf.Type == "" {
-            conf.Type = name
-        }
+		// if no type was given, use the name as the type
+		if conf.Type == "" {
+			conf.Type = name
+		}
 		regex, err := regexp.Compile(conf.Regex)
 		if err != nil {
 			return fmt.Errorf("Could not parse regex for "+name+": %w", err)
 		}
 
-
-        var cmd *exec.Cmd
-        if conf.Cmd != "" {
-            cmd = exec.Command("sh", "-c", conf.Cmd)
+		var cmd *exec.Cmd
+		if conf.Cmd != "" {
+			cmd = exec.Command("sh", "-c", conf.Cmd)
+		}
+		var create bool
+		if conf.Create == "true" {
+			create = true
+		} else {
+            create = false
         }
 		*c = append([]Config(*c), Config{
 			Name:    name,
@@ -95,6 +105,7 @@ func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			Regex:   *regex,
 			Replace: conf.Replace,
 			Cmd:     cmd,
+			Create:  create,
 		})
 	}
 
@@ -105,9 +116,9 @@ func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // found the directory path given by config_dir
 // NOTE: The only exported function
 func Load_configs(config_dir string) ([]Config, error) {
-    if logger == nil {
-        logger = log.New(log.WithLevel(log.DebugLevel))
-    }
+	if logger == nil {
+		logger = log.New(log.WithLevel(log.DebugLevel))
+	}
 
 	config_path := config_dir + "configs.yaml"
 
@@ -130,19 +141,19 @@ func (c Config) RunCmd(theme_name string, debug bool) error {
 	if c.Cmd == nil {
 		return nil
 	}
-    for i, arg := range c.Cmd.Args {
-        if strings.Contains(arg, "{}") {
-            c.Cmd.Args[i] = strings.ReplaceAll(arg, "{}", theme_name)
-        }
-    }
+	for i, arg := range c.Cmd.Args {
+		if strings.Contains(arg, "{}") {
+			c.Cmd.Args[i] = strings.ReplaceAll(arg, "{}", theme_name)
+		}
+	}
 
 	if debug {
-        logger.Debug("Running", "config", c.Name, "command:", strings.Join(c.Cmd.Args, " "))
-        // logger.Debug("Attempting to run:", "cmd ", config.Cmd.Args, "config", config.Name)
+		logger.Debug("Running", "config", c.Name, "command:", strings.Join(c.Cmd.Args, " "))
+		// logger.Debug("Attempting to run:", "cmd ", config.Cmd.Args, "config", config.Name)
 
 		out, err := c.Cmd.CombinedOutput()
 		if err != nil {
-            return err
+			return err
 		}
 		msgs := strings.Split(string(out), "\n")
 		for i, msg := range msgs[0 : len(msgs)-1] {
@@ -151,8 +162,8 @@ func (c Config) RunCmd(theme_name string, debug bool) error {
 		return nil
 	}
 
-    // PERF: just start it and let it fuck off, don't wait for it to finish
+	// PERF: just start it and let it fuck off, don't wait for it to finish
 	c.Cmd.Start()
-    return nil
+	return nil
 
 }
