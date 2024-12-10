@@ -63,6 +63,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *debug {
+		logger.Debug(config_dir)
+	}
 	configs, err := config.Load_configs(config_dir)
 	if err != nil {
 		logger.Error(err.Error())
@@ -166,13 +169,23 @@ func (theme theme_info) set_for(config config.Config) {
 		theme_name = name
 	}
 
+	// warn if directory of config does not exist
+	_, err := os.Stat(filepath.Dir(path))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			logger.Warn("Path to config does not exist.\n\tMaybe you forgot to stow something?")
+		} else {
+			logger.Error("Stat() config dir: " + err.Error())
+		}
+	}
+	
 	file, err := os.ReadFile(path)
     // if the config tells use to create the file if it doesn't exist
     // we just place the "Replace" string in the "file"'s contents
     // and write those back
 	if err != nil {
-		if !(config.Create && errors.Is(err, os.ErrNotExist)) {
-			logger.Error(err.Error())
+		if !config.Create {
+			logger.Error("Can't read file: " + err.Error())
 			return
 		}
 		file = []byte(config.Replace)
@@ -185,10 +198,16 @@ func (theme theme_info) set_for(config config.Config) {
 	line := strings.ReplaceAll(config.Replace, "{}", theme_name)
 	new_contents := config.Regex.ReplaceAll(file, []byte(line))
 
+	// create path to config, incase iy does not exist
+	// err = os.MkdirAll(filepath.Dir(path), os.FileMode(0700))
+	// if err != nil {
+		// logger.Error("Can't create directory path to config: " + err.Error())
+	// }
+
 	// write back the file :)
 	err = os.WriteFile(path, new_contents, os.FileMode(0664))
 	if err != nil {
-		logger.Error(err.Error())
+		logger.Error("Can't save: " + err.Error())
 	}
 
 	err = config.RunCmd(theme_name, *debug)
