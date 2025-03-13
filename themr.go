@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"runtime"
 
 	"themr/config"
 
@@ -61,6 +62,12 @@ func main() {
 	if err != nil {
 		logger.Error("Could not determine User Config Directory. (is $HOME unset?)")
 		os.Exit(1)
+	}
+
+	// Override config directory to use ~/.config on macOS
+	if runtime.GOOS == "darwin" {
+			config_dir = filepath.Join(os.Getenv("HOME"), ".config")
+			config_dir += "/themr/"
 	}
 
 	if *debug {
@@ -178,7 +185,7 @@ func (theme theme_info) set_for(config config.Config) {
 			logger.Error("Stat() config dir: " + err.Error())
 		}
 	}
-	
+
 	file, err := os.ReadFile(path)
     // if the config tells use to create the file if it doesn't exist
     // we just place the "Replace" string in the "file"'s contents
