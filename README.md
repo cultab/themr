@@ -2,7 +2,7 @@
 
 A program to set themes in all your programs by replacing strings in their config files.
 
-# Usage
+## Usage
 
 As easy as `themr THEME`.
 
@@ -24,11 +24,12 @@ optional arguments:
   -d, --debug         print debug messages
 ```
 
-# Installation
+## Installation
 
 ```sh
 make install
 ```
+
 Includes zsh completion script, installed to `$PREFIX/share/zsh/site-functions/`
 
 Optionally, copy over the example configs and themes
@@ -37,7 +38,15 @@ Optionally, copy over the example configs and themes
 make examples
 ```
 
-# Configs
+### macOS
+
+You can install `themr` via [Homebrew](https://brew.sh/) using the custom tap [`steinbrueckri/homebrew-packages`](https://github.com/steinbrueckri/homebrew-packages).
+
+To install, run: `brew install --HEAD steinbrueckri/packages/themr`
+
+⚠️ **Note:** This will build `themr` from source on your system instead of installing a precompiled binary.
+
+## Configs
 
 Configs are stored in $XDG_CONFIG_HOME/themr/configs.yaml as dictionaries containing the following:
 
@@ -48,7 +57,7 @@ Configs are stored in $XDG_CONFIG_HOME/themr/configs.yaml as dictionaries contai
 * cmd: a shell command to run after making the replacement (optional)
 * create: whether to create a file if it's missing (optional, defaults to false)
 
-## Example configs.yaml
+### Example configs.yaml
 
 ```yaml
 # name of the config
@@ -63,7 +72,7 @@ vim:
 
 The placeholder `{}` is replaced by the theme name at runtime.
 
-# Themes
+## Themes
 
 Themes are stored in `$XDG_CONFIG_HOME/themr/themes.yaml` as dictionaries containing key value pairs with
 the name of the theme for each kind of config.
@@ -71,7 +80,7 @@ the name of the theme for each kind of config.
 A default name can be defined so that you don't have to repeat the name for each config if it's the same.
 If a default name is not defined you *must* define a name for all your defined configs.
 
-# Examples
+## Examples
 
 This defines a theme of type `colorscheme` that is named `gruvbox`, there is one special case for configs of type `nvim`, where the name of the theme becomes `gruvbox8_hard`. You would apply this theme with `themr gruvbox`.
 
@@ -85,7 +94,6 @@ gruvbox:
 ```
 
 Some of the configs used by this theme are as follows:
-
 
 * The `xresources` config is used because it's type `colorscheme`, matches one of the keys of the theme `gruvbox`.
 
