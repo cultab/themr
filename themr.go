@@ -22,7 +22,7 @@ var (
 	debug   *bool
 )
 
-const VERSION = "0.2.3"
+const VERSION = "0.2.4"
 
 func init() {
 	logger = log.New(log.WithTimeFormat(""))
