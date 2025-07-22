@@ -42,8 +42,7 @@ type Config struct {
 	Create  bool
 }
 
-// type alias for a slice of Config
-type configs []Config
+type Edits map[string][]Config
 
 // validate that all the fields expected exist
 func (c yamlConfig) Validate(name string) error {
@@ -67,7 +66,8 @@ func (c yamlConfig) Validate(name string) error {
 	return nil
 }
 
-func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (ed *Edits) UnmarshalYAML(unmarshal func(any) error) error {
+	*ed = make(Edits)
 	cf := yamlConfigFile{}
 	err := unmarshal(&cf)
 	if err != nil {
@@ -96,12 +96,12 @@ func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if conf.Create == "true" {
 			create = true
 		} else {
-            create = false
-        }
-		*c = append([]Config(*c), Config{
-			Name:    name,
-			Type:    conf.Type,
-			Path:    conf.Path,
+			create = false
+		}
+		(*ed)[conf.Path] = append((*ed)[conf.Path], Config{
+			Name: name,
+			Type: conf.Type,
+			Path: conf.Path,
 			Regex:   *regex,
 			Replace: conf.Replace,
 			Cmd:     cmd,
@@ -115,7 +115,7 @@ func (c *configs) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // Loads all the configs found in the config.yaml file
 // found the directory path given by config_dir
 // NOTE: The only exported function
-func Load_configs(config_dir string) ([]Config, error) {
+func Load_configs(config_dir string) (Edits, error) {
 	if logger == nil {
 		logger = log.New(log.WithLevel(log.DebugLevel))
 	}
@@ -127,14 +127,14 @@ func Load_configs(config_dir string) ([]Config, error) {
 		return nil, fmt.Errorf("could not read config file: %v", err)
 	}
 
-	// NOTE: confs is of type `configs` just so we make it implement the Unmarshaller interface
-	var confs configs
-	err = yaml.Unmarshal(file, &confs)
+	// NOTE: edits is of type `configs` just so we make it implement the Unmarshaller interface
+	var edits Edits
+	err = yaml.Unmarshal(file, &edits)
 	if err != nil {
 		return nil, fmt.Errorf("error while loading config: '"+config_path+"' was invalid because %w", err)
 	}
 
-	return confs, err
+	return edits, err
 }
 
 func (c Config) RunCmd(theme_name string, debug bool) error {
