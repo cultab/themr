@@ -14,8 +14,8 @@ type set Map[string, struct{}]
 
 // generic methods, kinda
 
-func (c theme_info) Map() Map[string, string] {
-	return Map[string, string](c)
+func (t theme_info) Map() Map[string, string] {
+	return Map[string, string](t)
 }
 
 func (s set) Map() Map[string, struct{}] {

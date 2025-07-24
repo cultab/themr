@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	logger  log.Logger
-	debug   *bool
+	logger log.Logger
+	debug  *bool
 )
 
 const VERSION = "0.2.4"
@@ -52,7 +52,7 @@ func main() {
 	config.SetLogger(logger)
 
 	if *print_version {
-		fmt.Println(os.Args[0], "v" + VERSION)
+		fmt.Println(os.Args[0], "v"+VERSION)
 		os.Exit(0)
 	}
 
@@ -73,7 +73,7 @@ func main() {
 	if *debug {
 		logger.Debug(config_dir)
 	}
-	configs, err := config.Load_configs(config_dir)
+	edits, err := config.Load_configs(config_dir)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
@@ -82,14 +82,16 @@ func main() {
 	// the union of config names and their types
 	config_types := make(set)
 	var str_configs string
-	for _, config := range configs {
-		str_configs += config.Name + "\n"
-		config_types[config.Name] = member
-		if config_type := config.Type; config_type != "" {
-			config_types[config_type] = member
+	for _, configs := range edits {
+		for _, config := range configs {
+			str_configs += config.Name + "\n"
+			config_types[config.Name] = member
+			if config_type := config.Type; config_type != "" {
+				config_types[config_type] = member
+			}
 		}
 	}
-	logger.Debug(fmt.Sprintf("loaded %d configs", len(configs)), "names", str_configs)
+	logger.Debug(fmt.Sprintf("loaded %d configs", len(edits)), "names", str_configs)
 
 	// load themes
 	themes, err := load_themes(config_dir, config_types)
@@ -104,7 +106,7 @@ func main() {
 	logger.Debug(fmt.Sprintf("loaded %d themes", len(themes)), "names", str_themes)
 
 	if *list_configs_flag {
-		list_configs(configs)
+		list_configs(edits)
 		os.Exit(0)
 	}
 
@@ -130,38 +132,48 @@ func main() {
 		os.Exit(1)
 	}
 
-	chosen_theme.set(configs)
+	chosen_theme.set(edits)
 }
 
-func (theme theme_info) set(all_configs []config.Config) {
+func (t theme_info) set(edits config.Edits) {
 
 	// only keep configs with appropriate types
-	var configs []config.Config
-	for _, conf := range all_configs {
-		if theme.Map().contains_key(conf.Type) {
-			configs = append(configs, conf)
+	// var configs []config.Config
+	for path, configs := range edits {
+		for i, config := range configs {
+			if !t.Map().contains_key(config.Type) {
+				if len(edits[path]) == 1 { // if only one config left for this edit
+					delete(edits, path)
+				} else { // else remove only the 1 config
+					edits[path] = append(edits[path][:i], edits[path][i+1:]...)
+				}
+			}
 		}
 	}
 
 	if *debug {
-		for _, config := range configs {
-			theme.set_for(config)
+		for _, configs := range edits {
+			for _, config := range configs {
+				t.set_for(config)
+			}
 		}
 		return
 	}
 
 	var wg sync.WaitGroup
-	for _, conf := range configs {
+	for _, configs := range edits {
 		wg.Add(1)
-		go func(theme theme_info, conf config.Config) {
-			defer wg.Done()
-			theme.set_for(conf)
-		}(theme, conf)
+		go func(t theme_info, configs []config.Config) {
+			for _, conf := range configs {
+				defer wg.Done()
+				t.set_for(conf)
+			}
+		}(t, configs)
 	}
 	wg.Wait()
 }
 
-func (theme theme_info) set_for(config config.Config) {
+func (t theme_info) set_for(config config.Config) {
 
 	path := config.Path
 	if strings.HasPrefix(path, "~") {
@@ -170,9 +182,9 @@ func (theme theme_info) set_for(config config.Config) {
 	}
 
 	// use theme name for the type of config
-	theme_name := theme[config.Type]
+	theme_name := t[config.Type]
 	// unless it's overwitten by a theme specifying a theme_name for a config
-	if name, exists := theme[config.Name]; exists {
+	if name, exists := t[config.Name]; exists {
 		theme_name = name
 	}
 
@@ -187,9 +199,9 @@ func (theme theme_info) set_for(config config.Config) {
 	}
 
 	file, err := os.ReadFile(path)
-    // if the config tells use to create the file if it doesn't exist
-    // we just place the "Replace" string in the "file"'s contents
-    // and write those back
+	// if the config tells use to create the file if it doesn't exist
+	// we just place the "Replace" string in the "file"'s contents
+	// and write those back
 	if err != nil {
 		if !config.Create {
 			logger.Error("Can't read file: " + err.Error())
@@ -231,11 +243,13 @@ func list_themes(themes []theme_info) {
 	}
 }
 
-func list_configs(configs []config.Config) {
+func list_configs(edits config.Edits) {
 	fmt.Println("Found configs:")
 
-	for _, config := range configs {
-		fmt.Println("\t" + config.Name)
+	for _, configs := range edits {
+		for _, config := range configs {
+			fmt.Println("\t" + config.Name)
+		}
 	}
 }
 
